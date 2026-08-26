@@ -1,0 +1,13 @@
+/LiteWAMP.ini
+
+/PHP/*
+!/PHP/.gitkeep
+
+/MySQL/*
+!/MySQL/.gitkeep
+
+*.log
+*.pid
+*.pdb
+Thumbs.db
+Desktop.ini
