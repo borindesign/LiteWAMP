@@ -2,6 +2,8 @@
 
 LiteWAMP is a lightweight, portable Windows launcher for running multiple PHP versions with an optional MySQL server.
 
+Project website: [litewamp.localphp.net](https://litewamp.localphp.net/)
+
 It uses PHP's built-in development server, requires no Apache installation, does not register Windows services, and resolves every runtime path relative to `LiteWAMP.bat`. The complete local environment can therefore be moved to another directory or drive without changing the launcher.
 
 > LiteWAMP is intended for local development only. PHP's built-in server and the default MySQL configuration must not be exposed to untrusted networks or used as a production stack.
