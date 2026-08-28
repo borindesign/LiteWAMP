@@ -11,7 +11,7 @@ It uses PHP's built-in development server, requires no Apache installation, does
 ## Features
 
 - Discovers every PHP version stored directly under `PHP\`.
-- Provides a visual manager for enabling and disabling extensions independently for every PHP version.
+- Provides a visual manager for extensions and the main `php.ini` options, independently for every PHP version.
 - Discovers every MySQL version stored directly under `MySQL\`.
 - Supports spaces in runtime and project paths.
 - Lets the user choose the PHP version, project document root, HTTP port, and optional MySQL version.
@@ -165,7 +165,7 @@ When `LiteWAMP.ini` already exists, LiteWAMP displays a complete summary and off
 
 ```text
 [U] Use this configuration
-[E] Manage PHP extensions
+[E] Configure PHP extensions and options
 [N] Create a new configuration and replace the saved one
 [Q] Quit
 ```
@@ -174,18 +174,18 @@ Choosing `N` removes the previous generated configuration and starts the setup w
 
 If a configured runtime or project directory no longer exists, the configuration is considered invalid and LiteWAMP starts a new setup automatically.
 
-## Managing PHP extensions
+## Managing PHP extensions and options
 
-Choose `E` from the saved-configuration menu to open the visual extension manager. The manager:
+Choose `E` from the saved-configuration menu to open the visual PHP configuration manager. Select a PHP version at the top of the window, then use the two tabs:
 
-- lists every PHP version found directly under `PHP\`;
-- discovers the available `ext\php_*.dll` files for the selected version;
-- reads the enabled `extension=` and `zend_extension=` directives from that version's `php.ini`;
-- provides search, checkboxes, and a shortcut for selecting common extensions;
-- keeps each PHP version's configuration independent;
-- applies changes only after validating a temporary configuration with the matching `php.exe -m` command.
+- **Extensions** discovers the available `ext\php_*.dll` files, reads `extension=` and `zend_extension=` directives, and provides search, checkboxes, and a shortcut for selecting common extensions.
+- **Main options** manages frequently used settings with checkboxes or validated text fields: `allow_url_fopen`, `display_errors`, `log_errors`, `short_open_tag`, `expose_php`, `max_execution_time`, `max_input_time`, `post_max_size`, `upload_max_filesize`, `max_file_uploads`, `max_input_vars`, and `memory_limit`.
 
-If validation fails, the current `php.ini` is left unchanged and the PHP startup error is displayed. Missing DLL dependencies therefore do not silently produce a broken saved configuration.
+Every version keeps its own independent values in its own `php.ini`. Changing the selected version reloads both tabs. If there are unsaved changes, the manager asks whether to save, discard, or cancel the version change. The same protection is applied when closing the window.
+
+The manager validates integer values and the `K`, `M`, and `G` size suffixes before saving. It also requires `post_max_size` to be greater than `upload_max_filesize` and warns when `memory_limit` is lower than `post_max_size`. The `short_open_tag` option remains available for compatibility but is marked as deprecated starting with PHP 8.5.
+
+Changes are first written to a temporary configuration. The manager then starts the matching `php.exe`, checks the loaded modules, and reads back the effective option values. Only a successful validation replaces the real `php.ini`. If validation fails, the current file is left unchanged and the PHP startup error is displayed; missing DLL dependencies therefore do not silently produce a broken saved configuration.
 
 The first successful change creates one original backup beside the configuration:
 
@@ -195,7 +195,7 @@ PHP\php-version\php.ini.litewamp.bak
 
 Use **Restore backup** to return to that original configuration. When `php.ini` is missing, the manager can create it from `php.ini-development`, falling back to `php.ini-production` when necessary.
 
-New directives that are not already present are placed between `BEGIN LiteWAMP managed extensions` and `END LiteWAMP managed extensions` comments. Existing comments and unrelated settings are preserved. Extension changes take effect the next time that PHP version starts; they do not alter an already running PHP process.
+Existing directives are updated in place while comments, encoding, line endings, and unrelated settings are preserved. Missing extension directives are placed between `BEGIN LiteWAMP managed extensions` and `END LiteWAMP managed extensions`; missing main options use the separate `BEGIN LiteWAMP managed settings` and `END LiteWAMP managed settings` block. Changes take effect the next time that PHP version starts and do not alter an already running PHP process.
 
 ## Generated configuration
 
@@ -308,9 +308,9 @@ For migration between MySQL versions, prefer a logical export and import using `
 
 ```text
 LiteWAMP\
-├── LiteWAMP.bat       # Main interactive launcher
-├── LiteWAMP.Extensions.ps1 # Visual PHP extension manager
-├── LiteWAMP.ini       # Generated locally; excluded from Git
+├── LiteWAMP.bat           # Main interactive launcher
+├── LiteWAMP.PhpConfig.ps1 # Visual PHP configuration manager
+├── LiteWAMP.ini           # Generated locally; excluded from Git
 ├── PHP\               # Locally installed PHP ZIP distributions
 └── MySQL\             # Locally installed MySQL ZIP distributions
 ```

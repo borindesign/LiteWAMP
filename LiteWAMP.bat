@@ -44,22 +44,22 @@ if errorlevel 1 (
 call :SHOW_CONFIGURATION
 echo.
 echo  [U] Usa questa configurazione
-echo  [E] Gestisci le estensioni PHP
+echo  [E] Configura PHP: estensioni e opzioni
 echo  [N] Crea una nuova configurazione e sostituisci quella salvata
 echo  [Q] Esci
 echo.
 choice /C UENQ /N /M "Scelta: "
 if errorlevel 4 goto :EOF
 if errorlevel 3 goto RESET_CONFIGURATION
-if errorlevel 2 goto MANAGE_EXTENSIONS
+if errorlevel 2 goto MANAGE_PHP
 if errorlevel 1 goto START_ENVIRONMENT
 
-:MANAGE_EXTENSIONS
-if not exist "%APP_ROOT%\LiteWAMP.Extensions.ps1" (
+:MANAGE_PHP
+if not exist "%APP_ROOT%\LiteWAMP.PhpConfig.ps1" (
     color 0C
     echo.
-    echo  [ERRORE] Gestore estensioni non trovato:
-    echo  "%APP_ROOT%\LiteWAMP.Extensions.ps1"
+    echo  [ERRORE] Gestore configurazione PHP non trovato:
+    echo  "%APP_ROOT%\LiteWAMP.PhpConfig.ps1"
     echo.
     pause
     color 0A
@@ -78,11 +78,11 @@ if not exist "%POWERSHELL_EXE%" (
     goto BOOT
 )
 
-"%POWERSHELL_EXE%" -NoProfile -ExecutionPolicy Bypass -STA -File "%APP_ROOT%\LiteWAMP.Extensions.ps1" -PhpRoot "%PHP_ROOT%"
+"%POWERSHELL_EXE%" -NoProfile -ExecutionPolicy Bypass -STA -File "%APP_ROOT%\LiteWAMP.PhpConfig.ps1" -PhpRoot "%PHP_ROOT%"
 if errorlevel 1 (
     color 0C
     echo.
-    echo  [ERRORE] Il gestore delle estensioni PHP non e' stato avviato correttamente.
+    echo  [ERRORE] Il gestore della configurazione PHP non e' stato avviato correttamente.
     echo.
     pause
     color 0A
