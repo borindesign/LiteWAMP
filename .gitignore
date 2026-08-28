@@ -1,4 +1,5 @@
 /LiteWAMP.ini
+/website/
 
 /PHP/*
 !/PHP/.gitkeep

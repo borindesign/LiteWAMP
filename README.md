@@ -11,6 +11,7 @@ It uses PHP's built-in development server, requires no Apache installation, does
 ## Features
 
 - Discovers every PHP version stored directly under `PHP\`.
+- Provides a visual manager for enabling and disabling extensions independently for every PHP version.
 - Discovers every MySQL version stored directly under `MySQL\`.
 - Supports spaces in runtime and project paths.
 - Lets the user choose the PHP version, project document root, HTTP port, and optional MySQL version.
@@ -35,6 +36,7 @@ After cloning, add the desired official Windows ZIP distributions locally as des
 
 - Windows 10 or Windows 11.
 - `cmd.exe` and standard Windows command-line utilities.
+- Windows PowerShell 5.1 with Windows Forms, included with supported Windows 10 and Windows 11 installations.
 - At least one Windows PHP ZIP distribution containing `php.exe`.
 - Optionally, a MySQL Community Server Windows ZIP distribution containing `bin\mysqld.exe` and `bin\mysqladmin.exe`.
 - The Microsoft Visual C++ Redistributable required by the selected PHP and MySQL builds.
@@ -163,6 +165,7 @@ When `LiteWAMP.ini` already exists, LiteWAMP displays a complete summary and off
 
 ```text
 [U] Use this configuration
+[E] Manage PHP extensions
 [N] Create a new configuration and replace the saved one
 [Q] Quit
 ```
@@ -170,6 +173,29 @@ When `LiteWAMP.ini` already exists, LiteWAMP displays a complete summary and off
 Choosing `N` removes the previous generated configuration and starts the setup wizard again.
 
 If a configured runtime or project directory no longer exists, the configuration is considered invalid and LiteWAMP starts a new setup automatically.
+
+## Managing PHP extensions
+
+Choose `E` from the saved-configuration menu to open the visual extension manager. The manager:
+
+- lists every PHP version found directly under `PHP\`;
+- discovers the available `ext\php_*.dll` files for the selected version;
+- reads the enabled `extension=` and `zend_extension=` directives from that version's `php.ini`;
+- provides search, checkboxes, and a shortcut for selecting common extensions;
+- keeps each PHP version's configuration independent;
+- applies changes only after validating a temporary configuration with the matching `php.exe -m` command.
+
+If validation fails, the current `php.ini` is left unchanged and the PHP startup error is displayed. Missing DLL dependencies therefore do not silently produce a broken saved configuration.
+
+The first successful change creates one original backup beside the configuration:
+
+```text
+PHP\php-version\php.ini.litewamp.bak
+```
+
+Use **Restore backup** to return to that original configuration. When `php.ini` is missing, the manager can create it from `php.ini-development`, falling back to `php.ini-production` when necessary.
+
+New directives that are not already present are placed between `BEGIN LiteWAMP managed extensions` and `END LiteWAMP managed extensions` comments. Existing comments and unrelated settings are preserved. Extension changes take effect the next time that PHP version starts; they do not alter an already running PHP process.
 
 ## Generated configuration
 
@@ -283,6 +309,7 @@ For migration between MySQL versions, prefer a logical export and import using `
 ```text
 LiteWAMP\
 ├── LiteWAMP.bat       # Main interactive launcher
+├── LiteWAMP.Extensions.ps1 # Visual PHP extension manager
 ├── LiteWAMP.ini       # Generated locally; excluded from Git
 ├── PHP\               # Locally installed PHP ZIP distributions
 └── MySQL\             # Locally installed MySQL ZIP distributions

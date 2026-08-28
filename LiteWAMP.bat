@@ -44,13 +44,50 @@ if errorlevel 1 (
 call :SHOW_CONFIGURATION
 echo.
 echo  [U] Usa questa configurazione
+echo  [E] Gestisci le estensioni PHP
 echo  [N] Crea una nuova configurazione e sostituisci quella salvata
 echo  [Q] Esci
 echo.
-choice /C UNQ /N /M "Scelta: "
-if errorlevel 3 goto :EOF
-if errorlevel 2 goto RESET_CONFIGURATION
+choice /C UENQ /N /M "Scelta: "
+if errorlevel 4 goto :EOF
+if errorlevel 3 goto RESET_CONFIGURATION
+if errorlevel 2 goto MANAGE_EXTENSIONS
 if errorlevel 1 goto START_ENVIRONMENT
+
+:MANAGE_EXTENSIONS
+if not exist "%APP_ROOT%\LiteWAMP.Extensions.ps1" (
+    color 0C
+    echo.
+    echo  [ERRORE] Gestore estensioni non trovato:
+    echo  "%APP_ROOT%\LiteWAMP.Extensions.ps1"
+    echo.
+    pause
+    color 0A
+    goto BOOT
+)
+
+set "POWERSHELL_EXE=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+if not exist "%POWERSHELL_EXE%" (
+    color 0C
+    echo.
+    echo  [ERRORE] Windows PowerShell 5.1 non e' disponibile.
+    echo  Percorso previsto: "%POWERSHELL_EXE%"
+    echo.
+    pause
+    color 0A
+    goto BOOT
+)
+
+"%POWERSHELL_EXE%" -NoProfile -ExecutionPolicy Bypass -STA -File "%APP_ROOT%\LiteWAMP.Extensions.ps1" -PhpRoot "%PHP_ROOT%"
+if errorlevel 1 (
+    color 0C
+    echo.
+    echo  [ERRORE] Il gestore delle estensioni PHP non e' stato avviato correttamente.
+    echo.
+    pause
+    color 0A
+)
+goto BOOT
 
 :FIRST_CONFIGURATION
 echo  Nessuna configurazione salvata.
