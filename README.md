@@ -12,6 +12,7 @@ It uses PHP's built-in development server, requires no Apache installation, does
 
 - Discovers every PHP version stored directly under `PHP\`.
 - Provides a visual manager for extensions and the main `php.ini` options, independently for every PHP version.
+- Automatically normalizes the portable Windows extension directory to exactly `extension_dir = "ext"` before validating and saving each PHP configuration.
 - Discovers every MySQL version stored directly under `MySQL\`.
 - Supports spaces in runtime and project paths.
 - Lets the user choose the PHP version, project document root, HTTP port, and optional MySQL version.
@@ -185,7 +186,7 @@ Every version keeps its own independent values in its own `php.ini`. Changing th
 
 The manager validates integer values and the `K`, `M`, and `G` size suffixes before saving. It also requires `post_max_size` to be greater than `upload_max_filesize` and warns when `memory_limit` is lower than `post_max_size`. The `short_open_tag` option remains available for compatibility but is marked as deprecated starting with PHP 8.5.
 
-Changes are first written to a temporary configuration. The manager then starts the matching `php.exe`, checks the loaded modules, and reads back the effective option values. Only a successful validation replaces the real `php.ini`. If validation fails, the current file is left unchanged and the PHP startup error is displayed; missing DLL dependencies therefore do not silently produce a broken saved configuration.
+Changes are first written to a temporary configuration. Before validation, the manager ensures that exactly one active `extension_dir = "ext"` directive is present; commented, missing, duplicated, absolute, or otherwise incompatible values are normalized for portable Windows use. The manager then starts the matching `php.exe`, checks the loaded modules, and reads back the effective option values. Only a successful validation replaces the real `php.ini`. If validation fails, the current file is left unchanged and the PHP startup error is displayed; missing DLL dependencies therefore do not silently produce a broken saved configuration.
 
 The first successful change creates one original backup beside the configuration:
 

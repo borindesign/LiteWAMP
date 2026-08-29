@@ -20,6 +20,7 @@ $script:Version = $null
 $script:SelectedIndex = -1
 $script:Loading = $false
 $script:IsDirty = $false
+$script:ExtensionDirectoryPending = $false
 $script:StatusBase = ''
 $script:ExtensionBlockStart = '; BEGIN LiteWAMP managed extensions'
 $script:ExtensionBlockEnd = '; END LiteWAMP managed extensions'
@@ -202,6 +203,65 @@ function Read-EffectiveOptions([object]$Version, [string]$IniPath) {
     }
 }
 
+function Get-ExtensionDirectoryDirective([string]$Line) {
+    $pattern = '^(?<indent>\s*)(?<disabled>;\s*)?extension_dir\s*=\s*(?<value>"[^"]*"|''[^'']*''|[^;\s]+)(?<tail>\s*(?:;.*)?)$'
+    $match = [regex]::Match($Line, $pattern, 'IgnoreCase')
+    if (-not $match.Success) { return $null }
+    return [pscustomobject]@{
+        Enabled = -not $match.Groups['disabled'].Success
+        Value = $match.Groups['value'].Value.Trim().Trim('"').Trim("'")
+    }
+}
+
+function Test-ExtensionDirectoryIniText([string]$Text) {
+    $enabledCount = 0
+    $canonicalCount = 0
+    foreach ($line in [regex]::Split($Text, "`r`n|`n|`r")) {
+        $directive = Get-ExtensionDirectoryDirective $line
+        if ($null -eq $directive -or -not $directive.Enabled) { continue }
+        $enabledCount++
+        if ($line -ceq 'extension_dir = "ext"') { $canonicalCount++ }
+    }
+    return $enabledCount -eq 1 -and $canonicalCount -eq 1
+}
+
+function Update-ExtensionDirectoryIniText([string]$Text, [string]$NewLine) {
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($line in [regex]::Split($Text, "`r`n|`n|`r")) { [void]$lines.Add($line) }
+
+    $indexes = New-Object 'System.Collections.Generic.List[int]'
+    $preferredIndex = -1
+    $activeIndex = -1
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $directive = Get-ExtensionDirectoryDirective $lines[$i]
+        if ($null -eq $directive) { continue }
+        [void]$indexes.Add($i)
+        if ($preferredIndex -lt 0 -and $directive.Value -ceq 'ext') { $preferredIndex = $i }
+        if ($activeIndex -lt 0 -and $directive.Enabled) { $activeIndex = $i }
+    }
+
+    $canonicalIndex = if ($preferredIndex -ge 0) { $preferredIndex } elseif ($activeIndex -ge 0) { $activeIndex } elseif ($indexes.Count) { $indexes[0] } else { -1 }
+    if ($canonicalIndex -ge 0) {
+        $lines[$canonicalIndex] = 'extension_dir = "ext"'
+        foreach ($index in $indexes) {
+            if ($index -eq $canonicalIndex) { continue }
+            $directive = Get-ExtensionDirectoryDirective $lines[$index]
+            if ($null -ne $directive -and $directive.Enabled) { $lines[$index] = ';' + $lines[$index] }
+        }
+    } else {
+        $insertAt = -1
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($null -ne (Get-ExtensionDirective $lines[$i])) { $insertAt = $i; break }
+        }
+        if ($insertAt -lt 0) {
+            $insertAt = $lines.Count
+            if ($lines.Count -and $lines[$lines.Count - 1] -ne '') { [void]$lines.Add(''); $insertAt = $lines.Count }
+        }
+        $lines.Insert($insertAt, 'extension_dir = "ext"')
+    }
+    return [string]::Join($NewLine, $lines)
+}
+
 function Get-OptionStates([object]$Version) {
     $read = Read-EffectiveOptions $Version $Version.IniPath
     $states = @{}
@@ -355,6 +415,10 @@ function Test-OptionValues([hashtable]$States) {
 function Test-Configuration([object]$Version, [string]$IniPath, [hashtable]$ExtensionStates, [hashtable]$OptionStates) {
     $result = Invoke-Php $Version.PhpExe ('-c "{0}" -m' -f $IniPath) $Version.Home
     $errors = New-Object 'System.Collections.Generic.List[string]'
+    $iniDocument = Read-TextDocument $IniPath
+    if (-not (Test-ExtensionDirectoryIniText $iniDocument.Text)) {
+        [void]$errors.Add('La configurazione temporanea non contiene una sola direttiva extension_dir = "ext" attiva.')
+    }
     if ($result.ExitCode -ne 0) { [void]$errors.Add("php.exe ha restituito il codice $($result.ExitCode).") }
     if ($result.Error -match '(?im)PHP Startup:|Unable to load dynamic library') { [void]$errors.Add($result.Error.Trim()) }
     $modules = @($result.Output -split "`r?`n" | ForEach-Object { $_.Trim().ToLowerInvariant() })
@@ -384,7 +448,8 @@ function Test-Configuration([object]$Version, [string]$IniPath, [hashtable]$Exte
 function Save-Configuration([object]$Version, [hashtable]$ExtensionStates, [hashtable]$OptionStates) {
     if (-not (Ensure-Ini $Version)) { return $false }
     $doc = Read-TextDocument $Version.IniPath
-    $updated = Update-ExtensionIniText $doc.Text $doc.NewLine $ExtensionStates
+    $updated = Update-ExtensionDirectoryIniText $doc.Text $doc.NewLine
+    $updated = Update-ExtensionIniText $updated $doc.NewLine $ExtensionStates
     $updated = Update-OptionIniText $updated $doc.NewLine $OptionStates
     if ($updated -ceq $doc.Text) {
         [void][System.Windows.Forms.MessageBox]::Show('Non ci sono modifiche da salvare.', 'LiteWAMP', 'OK', 'Information')
@@ -526,7 +591,7 @@ function Update-Status {
 }
 
 function Update-DirtyState {
-    $dirty = $false
+    $dirty = $script:ExtensionDirectoryPending
     foreach ($state in $script:ExtensionStates.Values) {
         if ($state.Enabled -ne $state.OriginalEnabled) { $dirty = $true; break }
     }
@@ -568,12 +633,17 @@ function Load-Version([object]$Version) {
     $script:Version = $Version; $script:SelectedIndex = $combo.SelectedIndex
     $script:ExtensionStates = Get-ExtensionStates $Version
     $script:OptionStates = Get-OptionStates $Version
-    $script:IsDirty = $false
+    $script:ExtensionDirectoryPending = $true
+    if (Test-Path -LiteralPath $Version.IniPath -PathType Leaf) {
+        $iniDocument = Read-TextDocument $Version.IniPath
+        $script:ExtensionDirectoryPending = -not (Test-ExtensionDirectoryIniText $iniDocument.Text)
+    }
     $iniStatus = if (Test-Path -LiteralPath $Version.IniPath -PathType Leaf) { 'php.ini presente' } else { "php.ini assente: verra' proposto di crearlo al salvataggio" }
-    $script:StatusBase = "$($script:ExtensionStates.Count) estensioni disponibili - $iniStatus. Effetto al prossimo avvio di PHP."
+    $directoryStatus = if ($script:ExtensionDirectoryPending) { ' extension_dir verra'' impostata a "ext" al salvataggio.' } else { '' }
+    $script:StatusBase = "$($script:ExtensionStates.Count) estensioni disponibili - $iniStatus.$directoryStatus Effetto al prossimo avvio di PHP."
     $common.Enabled = $script:ExtensionStates.Count -gt 0
     $restore.Enabled = Test-Path -LiteralPath ($Version.IniPath + '.litewamp.bak') -PathType Leaf
-    Refresh-ExtensionList; Refresh-OptionControls; Update-Status
+    Refresh-ExtensionList; Refresh-OptionControls; Update-DirtyState
 }
 
 function Save-CurrentConfiguration([bool]$ShowSuccess) {
